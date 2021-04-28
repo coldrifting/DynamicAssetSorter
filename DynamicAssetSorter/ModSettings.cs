@@ -1,110 +1,91 @@
-﻿using System;
-using System.IO;
-using UnityEngine;
-using ICities;
+﻿using ICities;
 using ColossalFramework.IO;
 using ColossalFramework.UI;
-using static ColossalFramework.UI.UIView;
+using CitiesHarmony.API;
+using System.Collections.Generic;
+using System.IO;
 
 namespace DynamicAssetSorter
 {
-    public class ModSettings : IUserMod
+    public class ModSettings : LoadingExtensionBase, IUserMod
     {
         public string Name => "Dynamic Asset Sorter";
         public string Description => "Adjust Asset UI Priority on the fly";
 
-        public static string configFileName = "DynamicAssetSorterConfig.cfg";
-        public static string configFilePath = DataLocation.localApplicationData;
-        public static string configFileFullPath = configFilePath + "\\" + configFileName;
+        internal static string rulesFolder = DataLocation.localApplicationData;
+        internal static string rulesFileName = "DynamicAssetSorterRules.ini";
+        internal static string rulesConfigPath = rulesFolder + "\\" + rulesFileName;
+
+        internal static List<PrefabRule> prefabRules;
+
+        public void OnEnabled()
+        {
+            HarmonyHelper.DoOnHarmonyReady(() => DynamicAssetSorter.PatchAll());
+        }
+
+        public void OnDisabled()
+        {
+            if (HarmonyHelper.IsHarmonyInstalled) DynamicAssetSorter.UnpatchAll();
+        }
+
+        public override void OnLevelLoaded(LoadMode mode)
+        {
+            Reload(rulesConfigPath);
+        }
 
         public void OnSettingsUI(UIHelperBase helper)
         {
-            // Main Header
+            // Load Setting(s)
+            ModConfig config = Configuration<ModConfig>.Load();
+
             UIHelperBase group_main = helper.AddGroup("Dynamic Asset Sorter - Adjust UI sorting of assets");
-
-            // Edit Config file with default text editor
-            group_main.AddButton("Edit Config", () =>
+            group_main.AddCheckbox("Mix Vanilla and Custom Assets together when sorting", config.IsMixedSortEnabled, delegate(bool isEnabled)
             {
-                System.Diagnostics.Process.Start(configFileFullPath);
+                config.IsMixedSortEnabled = isEnabled;
+                Configuration<ModConfig>.Save();
+                DynamicAssetSorter.RefreshUI();
             });
-            group_main.AddSpace(4);
+            group_main.AddSpace(10);
 
-            // Reload the config
-            group_main.AddButton($"Reload Config", () =>
-            {
-                // Make sure we are in game and not a menu.
-                if (!GameAreaManager.exists || !SimulationManager.exists || LoadingManager.instance.m_loadedEnvironment == null)
-                {
-                    ExceptionPanel panel = UIView.library.ShowModal<ExceptionPanel>("ExceptionPanel");
-                    panel.SetMessage("Dynamic Asset Sorter", "Settings can only be reloaded ingame.", false);
-                    return;
-                }
+            UIHelperBase group_rules = helper.AddGroup("Sorting Rules Configuration");
+            group_rules.AddButton($"Reload Sorting Rules", () => Reload(rulesConfigPath));
+            group_rules.AddSpace(10);
 
-                // Find the class
-                DynamicAssetSorter dynamicAssetSorter = GameObject.FindObjectOfType<DynamicAssetSorter>();
-                if (dynamicAssetSorter != null)
-                    dynamicAssetSorter.Sort();
-            });
-            group_main.AddSpace(4);
+            group_rules.AddButton("Edit Sorting Rules Config File", () => OpenRulesConfig(rulesConfigPath));
+            group_rules.AddSpace(30);
 
-            // Reset the config to the default
-            UIHelperBase group_reset = helper.AddGroup("Reset Config");
-            group_reset.AddButton("Reset Config File", () =>
-            {
-                // Assign Delegate for Dialog box response
-                ModalPoppedReturnCallback resetConfigBtnDel = ResetConfigButtonClicked;
-                ConfirmPanel panel = UIView.library.ShowModal<ConfirmPanel>("ConfirmPanel", resetConfigBtnDel);
-                panel.SetMessage(
-                    "Dynamic Asset Sorter",
-                    "This will apply an example config file. " +
-                    "Any custom sorting settings will be lost. Are you sure?");
-
-                // Inline Delegate Method for 
-                void ResetConfigButtonClicked(UIComponent test, int result)
-                {
-                    try
-                    {
-                        if (Convert.ToBoolean(result))
-                        {
-                            ResetConfigFile(configFileFullPath);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.Log("DynamicAssetSorter - ResetConfigButtonClicked()");
-                        Debug.Log(ex.Message);
-                    }
-                }
-
-            });
+            group_rules.AddButton("Reset Sorting Rules Config File", () => ResetRulesConfigUI());
         }
 
-        public void ResetConfigFile(string configFile)
+        public static void Reload(string rulesConfigPath)
         {
-            try
-            {
-                StreamWriter writer = new StreamWriter(configFile);
-                writer.WriteLine("# Config File Format: Sorting Priority, Type (Network or Building), Asset Name");
-                writer.WriteLine("# Example: 1000, Network, HighwayRamp");
-                writer.WriteLine("# Use a pound sign at the start of a line to comment it out");
-                writer.WriteLine("# The mod will ignore any lines that aren't properly formated");
-                writer.WriteLine("# Extra whitespace for padding is okay, but don't quote asset names");
-                writer.WriteLine("# Higher sorting values will sort after lower ones, and you can also use negative values");
-                writer.WriteLine("# You can sort both workshop and vanilla content, but vanilla content always sorts before workshop content");
-                writer.WriteLine("# One way to find asset names is to install Mod Tools, press Ctrl+R, and hover over asset icons");
-                writer.WriteLine("");
-                writer.WriteLine("# Electricity");
-                writer.WriteLine("0050, Building, Wind Turbine");
-                writer.WriteLine("0500, Network,  Power Line");
-                writer.WriteLine("1000, Building, 816731978.Large Coal Power Plant_Data");
-                writer.Close();
-            }
-            catch (Exception ex)
-            {
-                Debug.Log("Unable to write DynamicAssetSorter config file");
-                Debug.Log(ex.Message);
-            }
+            prefabRules = ModUtils.ReadRulesConfig(rulesConfigPath);
+            if (ModUtils.IsInGame())
+                DynamicAssetSorter.Update();
         }
 
+        public static void OpenRulesConfig(string rulesConfigPath)
+        {
+            // Create a new rules config if it doesn't exist
+            if (!File.Exists(rulesConfigPath))
+                ModUtils.ResetRulesConfig(rulesConfigPath);
+
+            // Open the rules config in the default text editor
+            System.Diagnostics.Process.Start(rulesConfigPath);
+        }
+
+        private void ResetRulesConfigUI()
+        {
+            ConfirmPanel panel = UIView.library.ShowModal<ConfirmPanel>("ConfirmPanel", delegate (UIComponent component, int response)
+            {
+                if (response == 1)
+                    ModUtils.ResetRulesConfig(rulesConfigPath);
+            });
+            panel.SetMessage(
+                "Dynamic Asset Sorter",
+                "This will reset the rules configuration file.    " +
+                "Custom sorting rules will be lost. " +
+                "Are you sure?");
+        }
     }
 }

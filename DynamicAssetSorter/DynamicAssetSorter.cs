@@ -1,125 +1,149 @@
-﻿using System;
-using System.IO;
-using ColossalFramework.IO;
-using ColossalFramework.UI;
-using ICities;
+﻿using System.Reflection;
+using HarmonyLib;
 using UnityEngine;
-using static ColossalFramework.UI.UIView;
 
 namespace DynamicAssetSorter
 {
-    public class DynamicAssetSorter : MonoBehaviour
+    public class DynamicAssetSorter
     {
-        public static bool isGameLoaded = false;
+        internal static bool patched;
+        internal const string HarmonyId = "coldrifting.DynamicAssetSorter";
 
-        public void Start()
+        internal static void PatchAll()
         {
-            try
-            {
-                Sort();
-            }
-            catch (Exception ex)
-            {
-                Debug.Log("Dynamic Asset Sorter - Start() - " + ex.Message);
-            }
+            if (patched)
+                return;
+
+            patched = true;
+
+            var harmony = new Harmony(HarmonyId);
+            harmony.PatchAll(Assembly.GetExecutingAssembly());
         }
 
-        public void Sort()
+        internal static void UnpatchAll()
         {
-            ApplyConfig(ModSettings.configFileFullPath);
+            if (!patched)
+                return;
+
+            var harmony = new Harmony(HarmonyId);
+            harmony.UnpatchAll(HarmonyId);
+            patched = false;
+        }
+
+        public static void Update()
+        {
+            ApplyRules();
             RefreshUI();
         }
 
-        public void ApplyConfig(string configFile)
+        public static void ApplyRules()
         {
-            try
+            foreach (PrefabRule rule in ModSettings.prefabRules)
             {
-                // Find the class
-                DynamicAssetSorter dynamicAssetSorter = GameObject.FindObjectOfType<DynamicAssetSorter>();
-
-                string line;
-                StreamReader reader = new StreamReader(configFile);
-                while ((line = reader.ReadLine()) != null)
-                {
-                    // Skip comments and empty lines
-                    if (line.StartsWith("#") || line.Equals(""))
-                        continue;
-
-                    // Split each line into 3 parts
-                    string[] delimiter = { ", " };
-                    string[] splitLine = line.Split(delimiter, 3, System.StringSplitOptions.RemoveEmptyEntries);
-
-                    // Skip a line if it's first value can't be converted to an integer
-                    int priority;
-                    if (!int.TryParse(splitLine[0], out priority))
-                        continue;
-
-                    // Skip an entry if it's second value isn't a valid prefab type
-                    string prefabType = splitLine[1].Trim();
-                    if (!prefabType.Equals("Network") && !prefabType.Equals("Building"))
-                        continue;
-
-                    // The final part of the line should be the prefab name
-                    string prefabName = splitLine[2].Trim();
-
-                    // Apply the change
-                    dynamicAssetSorter.SetUIPriority(priority, prefabType, prefabName);
-                }
-                reader.Close();
-            }
-            catch (Exception ex)
-            {
-                Debug.Log("Unable to read DynamicAssetSorter config file");
-                Debug.Log(ex.Message);
-            }
-        }
-
-        public bool SetUIPriority(int priority, string prefabType, string prefabName)
-        {
-            try
-            {
-                // Workaround to find right prefab info
-                PrefabInfo prefab = new PrefabInfo();
-                switch (prefabType)
+                // Find the right prefab collection
+                PrefabInfo prefab;
+                string prefabString = rule.PrefabType;
+                switch (prefabString)
                 {
                     case "Network":
-                        prefab = PrefabCollection<NetInfo>.FindLoaded(prefabName);
+                        prefab = PrefabCollection<NetInfo>.FindLoaded(rule.PrefabName);
                         break;
                     case "Building":
-                        prefab = PrefabCollection<BuildingInfo>.FindLoaded(prefabName);
+                        prefab = PrefabCollection<BuildingInfo>.FindLoaded(rule.PrefabName);
+                        break;
+                    case "Transport":
+                        prefab = PrefabCollection<TransportInfo>.FindLoaded(rule.PrefabName);
                         break;
                     default:
-                        Debug.Log($"Dynamic Asset Sorter - Could not convert prefab type {prefabType} for Prefab {prefabName}!");
-                        return false;
+                        Debug.Log($"Dynamic Asset Sorter - Could not convert prefab type {rule.PrefabType} for Prefab {rule.PrefabName}!");
+                        continue;
                 }
 
-                // Set Priority
+                // Set the priority
                 if (prefab != null)
-                {
-                    prefab.m_UIPriority = priority;
-                    return true;
-                }
-                return false;
-            }
-            catch (Exception ex)
-            {
-                Debug.Log("Dynamic Asset Sorter - SetBuildingPriority() - " + ex.Message);
-                return false;
+                    prefab.m_UIPriority = rule.Priority;
             }
         }
 
-        // Forces a UI Refresh by checking for milestones
-        public void RefreshUI()
+        // Forces a UIPanel Refresh. Useful to reload prefab icons.
+        public static void RefreshUI()
         {
-            try
+            MainToolbar mainToolbar = GameObject.FindObjectOfType<MainToolbar>();
+
+            if (mainToolbar != null)
+                mainToolbar.RefreshPanel();
+        }
+
+        public static bool isInGame()
+        {
+            if (LoadingManager.instance.m_loadedEnvironment != null)
+                return true;
+
+            return false;
+        }
+
+        // Make vanilla prefabs sort next to custom ones.
+        // Used for most panels
+        [HarmonyPatch(typeof(GeneratedScrollPanel))]
+        [HarmonyPatch("ItemsGenericSort")]
+        [HarmonyPatch(new System.Type[] { typeof(PrefabInfo), typeof(PrefabInfo) })]
+        public static class GeneratedScrollPanelItemsGenericSortPatch
+        {
+            public static ModConfig config = Configuration<ModConfig>.Load();
+
+            public static void Postfix(PrefabInfo a, PrefabInfo b, ref int __result)
             {
-                UnlockManager unlockManager = GameObject.FindObjectOfType<UnlockManager>();
-                if (unlockManager != null)
-                    unlockManager.MilestonesUpdated();
+                if (config.IsMixedSortEnabled)
+                {
+                    int num = a.m_UIPriority.CompareTo(b.m_UIPriority);
+                    if (num == 0 && a.m_isCustomContent && b.m_isCustomContent)
+                    {
+                        num = a.GetLocalizedTitle().CompareTo(b.GetLocalizedTitle());
+                    }
+                    __result = num;
+                }
             }
-            catch (Exception ex)
+        }
+
+        // Make vanilla networks sort nicely next to custom ones
+        // Used for the roads panel
+        [HarmonyPatch(typeof(GeneratedScrollPanel), "ItemsTypeSort")]
+        public static class GeneratedScrollPanelItemsTypeSortPatch
+        {
+            public static ModConfig config = Configuration<ModConfig>.Load();
+
+            public static void Postfix(PrefabInfo a, PrefabInfo b, ref int __result)
             {
-                Debug.Log("Dynamic Asset Sorter - RefreshUI() - " + ex.Message);
+                if (config.IsMixedSortEnabled)
+                {
+                    int num = a.m_UIPriority.CompareTo(b.m_UIPriority);
+                    if (num == 0 && a.m_isCustomContent && b.m_isCustomContent)
+                    {
+                        num = a.GetLocalizedTitle().CompareTo(b.GetLocalizedTitle());
+                    }
+                    __result = num;
+                }
+            }
+
+            // Make vanilla networks sort nicely next to custom ones
+            // Used for the public transport panels
+            [HarmonyPatch(typeof(GeneratedScrollPanel), "ItemsTypeReverseSort")]
+            public static class GeneratedScrollPanelItemsTypeReverseSortPatch
+            {
+                public static ModConfig config = Configuration<ModConfig>.Load();
+
+                public static void Postfix(PrefabInfo a, PrefabInfo b, ref int __result)
+                {
+                    if (config.IsMixedSortEnabled)
+                    {
+                        int num = a.m_UIPriority.CompareTo(b.m_UIPriority);
+                        if (num == 0 && a.m_isCustomContent && b.m_isCustomContent)
+                        {
+                            num = a.GetLocalizedTitle().CompareTo(b.GetLocalizedTitle());
+                        }
+                        __result = num;
+                    }
+                }
             }
         }
     }
