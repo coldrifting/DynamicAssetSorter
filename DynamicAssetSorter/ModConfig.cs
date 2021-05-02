@@ -54,6 +54,7 @@ namespace DynamicAssetSorter
             prefabRules.Clear();
             hiddenIcons.Clear();
 
+            int lineNumber = 0;
             try
             {
                 // Read the Config File
@@ -61,6 +62,7 @@ namespace DynamicAssetSorter
                 StreamReader reader = new StreamReader(configPath);
                 while ((line = reader.ReadLine()) != null)
                 {
+                    lineNumber++;
                     // Skip comments and empty lines
                     if (line.StartsWith("#") || line.Equals(""))
                         continue;
@@ -118,7 +120,7 @@ namespace DynamicAssetSorter
                 if (IsUIAvailable())
                 {
                     ExceptionPanel panel = UIView.library.ShowModal<ExceptionPanel>("ExceptionPanel");
-                    panel.SetMessage("Dynamic Asset Sorter", "Unable to read config file! \n" + ex.Message, false);
+                    panel.SetMessage("Dynamic Asset Sorter", "Unable to read config file! \n" + ex.Message + "Line Number: " + lineNumber, false);
                 }
                 Debug.Log($"{modName}: Unable to read config file!");
                 Debug.Log(ex.Message);
