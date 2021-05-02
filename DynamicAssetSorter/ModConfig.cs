@@ -54,7 +54,8 @@ namespace DynamicAssetSorter
             prefabRules.Clear();
             hiddenIcons.Clear();
 
-            int lineNumber = 0;
+            // Store current line for exception handling
+            int currentLine = 0;
             try
             {
                 // Read the Config File
@@ -62,55 +63,55 @@ namespace DynamicAssetSorter
                 StreamReader reader = new StreamReader(configPath);
                 while ((line = reader.ReadLine()) != null)
                 {
-                    lineNumber++;
+                    currentLine++;
+
                     // Skip comments and empty lines
                     if (line.StartsWith("#") || line.Equals(""))
                         continue;
 
-                    // Add icons we want to hide
+                    // Split the line into 3 parts
                     string[] delimiter = { ", " };
-                    if (line.StartsWith("HideIcon", StringComparison.InvariantCultureIgnoreCase))
+                    string[] splitLine = line.Split(delimiter, 3, StringSplitOptions.RemoveEmptyEntries);
+                    if (splitLine.Length == 3)
                     {
-                        string[] iconSplit = line.Split(delimiter, 3, StringSplitOptions.RemoveEmptyEntries);
-                        if (iconSplit.Length == 3)
+                        if (line.StartsWith("HideIcon", StringComparison.InvariantCultureIgnoreCase))
                         {
-                            string iconName = iconSplit[2].Trim();
-                            string iconGrandparent = iconSplit[1].Trim();
+                            string iconName = splitLine[2].Trim();
+                            string iconGrandparent = splitLine[1].Trim();
                             hiddenIcons.Add(new IconInfo(iconName, iconGrandparent));
+                            continue;
+                        }
+
+                        // Skip a line if it's first value can't be converted to an integer
+                        int priority;
+                        if (!int.TryParse(splitLine[0].Trim(), out priority))
+                        {
+                            Debug.Log($"{modName}: Invalid config entry. Entries must start with a number or the prefix \"HideIcon, \"");
+                            continue;
+                        }
+
+                        // The last part of the line will be the prefab name
+                        string prefabName = splitLine[2].Trim();
+
+                        // Assign a line to the correct dictionary
+                        string prefabType = splitLine[1].Trim();
+                        if (prefabType == "Network" ||
+                            prefabType == "Building" ||
+                            prefabType == "Transport" ||
+                            prefabType == "Tree" ||
+                            prefabType == "Prop")
+                        {
+                            prefabRules.Add(new SortRule(prefabName, prefabType, priority));
                         }
                         else
                         {
-                            Debug.Log($"{modName}: \"{line}\" is an invalid Hide Icon entry");
-                            Debug.Log($"{modName}: Example Format: \"Hide Icon, [PanelName], [IconName]\"");
+                            Debug.Log($"{modName}: Invalid prefab type: \"{prefabType}\" for prefab \"{prefabName}\" in config file.");
                         }
-                        continue;
-                    }
-
-                    // Split each line into 3 parts
-                    string[] splitLine = line.Split(delimiter, 3, StringSplitOptions.RemoveEmptyEntries);
-
-                    // Skip a line if it's first value can't be converted to an integer
-                    int priority;
-                    if (!int.TryParse(splitLine[0].Trim(), out priority))
-                    {
-                        Debug.Log($"{modName}: Invalid config entry. Entries must start with a number or the prefix \"HideIcon, \"");
-                        continue;
-                    }
-
-                    // The last part of the line will be the prefab name
-                    string prefabName = splitLine[2].Trim();
-
-                    // Assign a line to the correct dictionary
-                    string prefabType = splitLine[1].Trim();
-                    if (prefabType == "Network" ||
-                        prefabType == "Building" ||
-                        prefabType == "Transport")
-                    {
-                        prefabRules.Add(new SortRule(prefabName, prefabType, priority));
                     }
                     else
                     {
-                        Debug.Log($"{modName}: Invalid prefab type: \"{prefabType}\" for prefab \"{prefabName}\" in config file.");
+                        Debug.Log($"{modName}: \"{line}\" is an invalid config entry. Check that you aren't missing any commas.");
+                        Debug.Log($"{modName}: Example Format: \"[Number], [PrefabType], [PrefabName]\"");
                     }
                 }
                 reader.Close();
@@ -120,7 +121,11 @@ namespace DynamicAssetSorter
                 if (IsUIAvailable())
                 {
                     ExceptionPanel panel = UIView.library.ShowModal<ExceptionPanel>("ExceptionPanel");
-                    panel.SetMessage("Dynamic Asset Sorter", "Unable to read config file! \n" + ex.Message + "Line Number: " + lineNumber, false);
+                    panel.SetMessage(
+                        "Dynamic Asset Sorter", 
+                        "Unable to read config file! \n" + 
+                        "Please check line number " + currentLine + "\n " + 
+                        ex.Message, false);
                 }
                 Debug.Log($"{modName}: Unable to read config file!");
                 Debug.Log(ex.Message);

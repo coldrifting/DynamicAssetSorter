@@ -59,12 +59,23 @@ namespace DynamicAssetSorter
                     case "Network":
                         prefab = PrefabCollection<NetInfo>.FindLoaded(sortRule.Name);
                         break;
+
                     case "Building":
                         prefab = PrefabCollection<BuildingInfo>.FindLoaded(sortRule.Name);
                         break;
+
                     case "Transport":
                         prefab = PrefabCollection<TransportInfo>.FindLoaded(sortRule.Name);
                         break;
+
+                    case "Tree":
+                        prefab = PrefabCollection<TreeInfo>.FindLoaded(sortRule.Name);
+                        break;
+
+                    case "Prop":
+                        prefab = PrefabCollection<PropInfo>.FindLoaded(sortRule.Name);
+                        break;
+
                     default:
                         break;
                 }
