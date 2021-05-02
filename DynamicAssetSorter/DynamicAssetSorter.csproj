@@ -57,7 +57,9 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ModUtils.cs" />
+    <Compile Include="ModConfig.cs" />
+    <Compile Include="Patches\GeneratedScrollPanelPatches.cs" />
+    <Compile Include="PrefabInfoExtension.cs" />
     <Compile Include="XMLUtils.cs" />
     <Compile Include="DynamicAssetSorter.cs" />
     <Compile Include="ModSettings.cs" />
