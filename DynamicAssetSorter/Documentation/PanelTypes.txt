@@ -1,0 +1,95 @@
+# A list of panel types in Cities: Skylines.
+# Needed for hiding asset icons.
+
+# Roads
+RoadsSmallPanel
+RoadsMediumPanel
+RoadsLargePanel
+RoadsHighwayPanel
+RoadsIntersectionPanel
+RoadsMaintenancePanel
+
+# Zoning
+ZoningDefaultPanel
+
+# Districts
+DistrictSpecializationPaintPanel
+DistrictSpecializationIndustryPanel
+DistrictSpecializationCommercialPanel
+DistrictSpecializationOfficePanel
+DistrictSpecializationResidentialPanel
+
+# Electricity
+ElectricityDefaultPanel
+WaterServicesPanel
+WaterHeatingPanel
+
+# Garbage and Industry
+DefaultPanel
+IndustryForestryPanel
+IndustryFarmingPanel
+IndustryOrePanel
+IndustryOilPanel
+IndustryWarehousesPanel
+IndustryUniqueFactorPanel
+
+# Healthcare
+HealthcareDefaultPanel
+
+# Fire Department
+FireDepartmentFirePanel
+FireDepartmentDisaterPanel
+
+# Police Department
+PoliceDefaultPanel
+
+# Education
+EducationDefaultPanel
+
+# Public Transport
+PublicTransportBusPanel
+PublicTransportTramPanel
+PublicTransportMetroPanel
+PublicTransportTrainPanel
+PublicTransportShipPanel
+PublicTransportPlanePanel
+PublicTransportMonorailPanel
+PublicTransportCableCarPanel
+PublicTransportTaxiPanel
+PublicTransportPostPanel
+PublicTransportHubsPanel
+
+# Parks and Plazas
+BeautificationParksPanel
+BeautificationPlazasPanel
+BeautificationOthersPanel
+BeautificationExpansion1Panel
+BeautificationCityParkPanel
+BeautificationAmusementParkPanel
+BeautificationZooPanel
+BeautificationNatureReservePanel
+BeautificationPropsPanel
+BeautificationMaintenancePanel
+
+# Unique Buildings
+MonumentLandmarksPanel
+MonumentExpansion1Panel
+MonumentFootballPanel
+MonumentCategory1Panel
+MonumentCategory2Panel
+MonumentCategory3Panel
+MonumentCategory4Panel
+MonumentCategory5Panel
+MonumentCategory6Panel
+
+# Monuments
+WondersDefaultPanel
+
+# Landscaping
+LandscapingPathsPanel
+LandscapingFencesPanel
+LandscapingTreesPanel
+LandscapingVegetationPanel
+LandscapingRocksPanel
+LandscapingWaterStructuresPanel
+LandscapingDisatersPanel

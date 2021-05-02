@@ -77,6 +77,7 @@ namespace DynamicAssetSorter
                 }
             }
 
+            // Override show assets method to make sure our hidden icons stay hidden
             [HarmonyPatch(typeof(GeneratedScrollPanel), "ShowAssetsThatShouldBeShown")]
             public static class GeneratedScrollPanelShowAssetsThatShouldBeShownPatch
             {

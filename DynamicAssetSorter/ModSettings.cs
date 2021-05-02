@@ -8,7 +8,7 @@ namespace DynamicAssetSorter
     public class ModSettings : LoadingExtensionBase, IUserMod
     {
         public string Name => "Dynamic Asset Sorter";
-        public string Description => "Adjust Asset UI Priority on the fly";
+        public string Description => "Sort and Hide Asset Icons";
 
         public void OnEnabled()
         {
@@ -28,9 +28,17 @@ namespace DynamicAssetSorter
 
         public static void Reload()
         {
+            // Create a new rules config if it doesn't exist
+            if (!File.Exists(ModConfig.configPath))
+            {
+                ModConfig.ResetConfig();
+            }
+
             ModConfig.ReadConfig();
             if (InGame())
+            {
                 DynamicAssetSorter.Update();
+            }
         }
 
         public void OnSettingsUI(UIHelperBase helper)
@@ -38,7 +46,7 @@ namespace DynamicAssetSorter
             // Load Setting(s)
             ModConfig config = Configuration<ModConfig>.Load();
 
-            UIHelperBase group_main = helper.AddGroup("Dynamic Asset Sorter - Adjust UI sorting of assets");
+            UIHelperBase group_main = helper.AddGroup("Dynamic Asset Sorter");
             group_main.AddCheckbox("Sort vanilla and custom assets interchangeably", config.IsMixedSortEnabled, delegate(bool isEnabled)
             {
                 config.IsMixedSortEnabled = isEnabled;
@@ -47,14 +55,13 @@ namespace DynamicAssetSorter
             });
             group_main.AddSpace(10);
 
-            UIHelperBase group_rules = helper.AddGroup("Sorting Rules Configuration");
-            group_rules.AddButton($"Reload Settings", () => Reload());
-            group_rules.AddSpace(10);
+            group_main.AddButton($"Reload Settings", () => Reload());
+            group_main.AddSpace(10);
 
-            group_rules.AddButton("Edit Settings File", () => OpenConfig());
-            group_rules.AddSpace(30);
+            group_main.AddButton("Edit Settings File", () => OpenConfig());
+            group_main.AddSpace(40);
 
-            group_rules.AddButton("Reset Settings File", () => ResetConfigPrompt());
+            group_main.AddButton("Reset Settings File", () => ResetConfigPrompt());
         }
 
         public static void OpenConfig()
@@ -76,8 +83,8 @@ namespace DynamicAssetSorter
             });
             panel.SetMessage(
                 "Dynamic Asset Sorter",
-                "This will reset the rules configuration file.    " +
-                "Custom sorting rules will be lost. " +
+                "This will reset the settings file. " +
+                "Any customized settings will be lost. " +
                 "Are you sure?");
         }
 
