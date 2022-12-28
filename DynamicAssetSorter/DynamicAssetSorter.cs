@@ -1,11 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Reflection;
-using ColossalFramework;
 using ColossalFramework.UI;
 using UnityEngine;
 using HarmonyLib;
-using System;
-using System.Linq;
 
 namespace DynamicAssetSorter
 {
@@ -14,8 +11,11 @@ namespace DynamicAssetSorter
         private const string HarmonyId = "coldrifting.DynamicAssetSorter";
         private static bool patched;
 
-        private static List<UIButton> currentHiddenIcons = new List<UIButton>();
+        private static readonly List<UIButton> CurrentHiddenIcons = new List<UIButton>();
 
+        /// <summary>
+        /// Enables the Harmony patches.
+        /// </summary>
         public static void PatchAll()
         {
             if (patched)
@@ -29,6 +29,10 @@ namespace DynamicAssetSorter
             harmony.PatchAll(Assembly.GetExecutingAssembly());
         }
 
+
+        /// <summary>
+        /// Disables the Harmony patches.
+        /// </summary>
         public static void UnpatchAll()
         {
             if (!patched)
@@ -41,14 +45,25 @@ namespace DynamicAssetSorter
             patched = false;
         }
 
+
+        /// <summary>
+        /// The main processes that happen each time the mod is run.
+        /// </summary>
         public static void Update()
         {
-            SortPrefabs();
-            ResetIcons();
-            HideIcons();
-            RefreshUI();
+            if (ModConfig.LoadConfigFile())
+            {
+                SortPrefabs();
+                ResetIcons();
+                HideIcons();
+                RefreshUI();
+            }
         }
 
+
+        /// <summary>
+        /// Assigns new UI priority values according to the config file.
+        /// </summary>
         public static void SortPrefabs()
         {
             foreach(ModConfig.SortRule sortRule in ModConfig.prefabRules)
@@ -79,41 +94,52 @@ namespace DynamicAssetSorter
                     default:
                         break;
                 }
+
                 if (prefab != null)
-                {
-                    prefab.m_UIPriority = sortRule.Priority;
-                }
+                    prefab.m_UIPriority = sortRule.UIOrder;
             }
         }
 
+
+        /// <summary>
+        /// Makes all previously hidden icons reappear.
+        /// </summary>
         public static void ResetIcons()
         {
-            foreach (UIButton button in currentHiddenIcons)
+            foreach (UIButton button in CurrentHiddenIcons)
             {
                 button.Show();
             }
-            currentHiddenIcons.Clear();
+            CurrentHiddenIcons.Clear();
         }
 
+
+        /// <summary>
+        /// Hides the icons chosen in the config.
+        /// </summary>
         public static void HideIcons()
         {
-            UIButton[] buttons = UIView.FindObjectsOfType<UIButton>();
-            foreach (ModConfig.IconInfo iconInfo in ModConfig.hiddenIcons)
+            UIButton[] buttons = Object.FindObjectsOfType<UIButton>();
+            foreach (ModConfig.IconInfo iconInfo in ModConfig.hiddenIcons.Values)
             {
                 foreach (UIButton button in buttons)
                 {
-                    if (button.name == iconInfo.Name && button.parent.parent.name == iconInfo.Grandparent)
+                    if (button.name == iconInfo.Name && button.parent.parent.name == iconInfo.ParentPanel)
                     {
                         button.Hide();
-                        currentHiddenIcons.Add(button);
+                        CurrentHiddenIcons.Add(button);
                     }
                 }
             }
         }
 
+
+        /// <summary>
+        /// Makes the UI changes take effect.
+        /// </summary>
         public static void RefreshUI()
         {
-            MainToolbar mainToolbar = GameObject.FindObjectOfType<MainToolbar>();
+            MainToolbar mainToolbar = Object.FindObjectOfType<MainToolbar>();
             if (mainToolbar != null)
             {
                 mainToolbar.RefreshPanel();

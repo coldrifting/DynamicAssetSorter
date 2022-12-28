@@ -1,6 +1,4 @@
-﻿using System.IO;
-using ICities;
-using ColossalFramework.UI;
+﻿using ICities;
 using CitiesHarmony.API;
 
 namespace DynamicAssetSorter
@@ -10,87 +8,70 @@ namespace DynamicAssetSorter
         public string Name => "Dynamic Asset Sorter";
         public string Description => "Sort and Hide Asset Icons";
 
+        /// <summary>
+        /// Harmony helper functions for mod enabling.
+        /// </summary>
         public void OnEnabled()
         {
-            ModConfig.ReadConfig();
             HarmonyHelper.DoOnHarmonyReady(() => DynamicAssetSorter.PatchAll());
         }
 
+
+        /// <summary>
+        /// Harmony helper functions for mod disabling.
+        /// </summary>
         public void OnDisabled()
         {
             if (HarmonyHelper.IsHarmonyInstalled) DynamicAssetSorter.UnpatchAll();
         }
 
+
+        /// <summary>
+        /// Runs the mod's main function on level loading.
+        /// </summary>
+        /// <param name="mode"></param>
         public override void OnLevelLoaded(LoadMode mode)
         {
-            Reload();
+            // Disable the mod in the asset editors
+            if (mode == LoadMode.NewAsset ||
+                mode == LoadMode.LoadAsset ||
+                mode == LoadMode.NewMap ||
+                mode == LoadMode.LoadMap ||
+                mode == LoadMode.NewTheme ||
+                mode == LoadMode.LoadTheme)
+                return;
+
+            DynamicAssetSorter.Update();
         }
 
-        public static void Reload()
-        {
-            // Create a new rules config if it doesn't exist
-            if (!File.Exists(ModConfig.configPath))
-            {
-                ModConfig.ResetConfig();
-            }
 
-            ModConfig.ReadConfig();
-            if (InGame())
-            {
-                DynamicAssetSorter.Update();
-            }
-        }
-
+        /// <summary>
+        /// Sets up settings GUI for the mod.
+        /// </summary>
         public void OnSettingsUI(UIHelperBase helper)
         {
             // Load Setting(s)
             ModConfig config = Configuration<ModConfig>.Load();
 
             UIHelperBase group_main = helper.AddGroup("Dynamic Asset Sorter");
-            group_main.AddCheckbox("Sort vanilla and custom assets interchangeably", config.IsMixedSortEnabled, delegate(bool isEnabled)
+            group_main.AddCheckbox("Enable Mixed Sorting of Vanilla/Custom Assets", config.IsMixedSortEnabled, delegate(bool isEnabled)
             {
                 config.IsMixedSortEnabled = isEnabled;
                 Configuration<ModConfig>.Save();
-                DynamicAssetSorter.Update();
+
+                // Only update in-game
+                if (LoadingManager.instance.m_loadedEnvironment != null)
+                    DynamicAssetSorter.Update();
             });
             group_main.AddSpace(10);
 
-            group_main.AddButton($"Reload Settings", () => Reload());
+            group_main.AddButton($"Reload Settings", () => DynamicAssetSorter.Update());
             group_main.AddSpace(10);
 
-            group_main.AddButton("Edit Settings File", () => OpenConfig());
-            group_main.AddSpace(40);
+            group_main.AddButton("Edit Settings File", () => ModConfig.EditConfigFile());
+            group_main.AddSpace(30);
 
-            group_main.AddButton("Reset Settings File", () => ResetConfigPrompt());
-        }
-
-        public static void OpenConfig()
-        {
-            // Create a new rules config if it doesn't exist
-            if (!File.Exists(ModConfig.configPath))
-                ModConfig.ResetConfig();
-
-            // Open the rules config in the default text editor
-            System.Diagnostics.Process.Start(ModConfig.configPath);
-        }
-
-        private void ResetConfigPrompt()
-        {
-            ConfirmPanel panel = UIView.library.ShowModal<ConfirmPanel>("ConfirmPanel", delegate (UIComponent component, int response)
-            {
-                if (response == 1)
-                    ModConfig.ResetConfig();
-            });
-            panel.SetMessage(
-                "Dynamic Asset Sorter",
-                "This will reset the settings file. " +
-                "Any customized settings will be lost. " +
-                "Are you sure?");
-        }
-
-        public static bool InGame()
-        {
-            return (LoadingManager.instance.m_loadedEnvironment != null);
+            group_main.AddButton("Export Current Sorting Settings to File", () => ModConfig.ExportPrefabInfo());
         }
     }
 }
