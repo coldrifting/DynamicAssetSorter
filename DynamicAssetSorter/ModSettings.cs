@@ -71,7 +71,7 @@ namespace DynamicAssetSorter
             group_main.AddButton("Edit Settings File", () => ModConfig.EditConfigFile());
             group_main.AddSpace(30);
 
-            group_main.AddButton("Export Current Sorting Settings to File", () => ModConfig.ExportPrefabInfo());
+            group_main.AddButton("Export Unlocked Prefab Settings to File", () => ModConfig.ExportPrefabInfo());
         }
     }
 }
